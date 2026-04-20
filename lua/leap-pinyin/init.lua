@@ -26,6 +26,21 @@ local default_opts = {
 
 M.opts = vim.deepcopy(default_opts)
 
+-- LazyVim's plugin load order causes leap to init() before the colorscheme
+-- defines LeapBackdrop. Without that highlight group, leap skips registering
+-- its backdrop autocmd entirely, so the buffer never dims during a search.
+-- We reinforce by (1) providing a default LeapBackdrop and (2) re-running
+-- leap's highlight init now and again on every ColorScheme change.
+local function ensure_backdrop()
+  local existing = vim.api.nvim_get_hl(0, { name = "LeapBackdrop" })
+  if vim.tbl_isempty(existing) then
+    vim.api.nvim_set_hl(0, "LeapBackdrop", { link = "Comment", default = true })
+  end
+  pcall(function()
+    require("leap.highlight"):init()
+  end)
+end
+
 function M.setup(user_opts)
   M.opts = vim.tbl_deep_extend("force", default_opts, user_opts or {})
 
@@ -38,6 +53,12 @@ function M.setup(user_opts)
 
   if M.opts.enabled then
     require("leap-pinyin.leap-hook").install()
+
+    ensure_backdrop()
+    vim.api.nvim_create_autocmd("ColorScheme", {
+      group = vim.api.nvim_create_augroup("LeapPinyinBackdrop", { clear = true }),
+      callback = ensure_backdrop,
+    })
   end
 end
 
