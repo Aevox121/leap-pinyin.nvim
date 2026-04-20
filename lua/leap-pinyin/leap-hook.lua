@@ -186,6 +186,44 @@ local function sort_targets_by_cursor(targets, backward)
   end)
 end
 
+-- Apply LeapBackdrop dimming over the search range manually.
+-- leap's own backdrop autocmd has timing issues when combined with custom
+-- targets via leap.leap({targets=...}); applying it directly here is reliable.
+local backdrop_ns = vim.api.nvim_create_namespace("leap_pinyin_backdrop")
+
+local function apply_backdrop(backward)
+  local bufnr = vim.api.nvim_get_current_buf()
+  local cur_line = vim.fn.line(".") - 1
+  local cur_col = vim.fn.col(".") - 1
+  local top_line = vim.fn.line("w0") - 1
+  local bot_line = vim.fn.line("w$") - 1
+
+  vim.api.nvim_buf_clear_namespace(bufnr, backdrop_ns, 0, -1)
+
+  local start_row, start_col, end_row, end_col
+  if backward then
+    start_row, start_col = top_line, 0
+    end_row, end_col = cur_line, cur_col
+  else
+    start_row, start_col = cur_line, cur_col + 1
+    end_row, end_col = bot_line, -1
+  end
+
+  local hl_range = vim.hl and vim.hl.range or vim.highlight.range
+  hl_range(bufnr, backdrop_ns, "LeapBackdrop",
+    { start_row, start_col }, { end_row, end_col },
+    { priority = 65534 })
+end
+
+local function clear_backdrop()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    if vim.api.nvim_buf_is_valid(buf) then
+      vim.api.nvim_buf_clear_namespace(buf, backdrop_ns, 0, -1)
+    end
+  end
+end
+
 -- Public entry for shuangpin mode.
 function M.leap(opts)
   opts = opts or {}
@@ -200,10 +238,17 @@ function M.leap(opts)
 
   sort_targets_by_cursor(targets, opts.backward)
 
-  require("leap").leap({
-    targets = targets,
-    backward = opts.backward,
-  })
+  apply_backdrop(opts.backward)
+  vim.cmd("redraw")
+
+  local ok, err = pcall(function()
+    require("leap").leap({
+      targets = targets,
+      backward = opts.backward,
+    })
+  end)
+  clear_backdrop()
+  if not ok then error(err) end
 end
 
 local function install_shuangpin_mode()
