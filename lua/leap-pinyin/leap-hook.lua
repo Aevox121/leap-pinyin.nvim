@@ -50,10 +50,32 @@ local function install_pinyin_mode()
   local rev = build_pinyin_reverse_index()
   original_eqv_class_of = opts.default.eqv_class_of
 
+  -- CRITICAL: leap's populate_sublists() keys target groups by the
+  -- representative char of each target's ch2 (via rep_char(ch) = eqv_class[ch][1]).
+  -- For a Chinese char like 户, if we don't give it an eqv class, rep_char returns
+  -- 户 itself, and later lookup sublists["h"] (user's in2) misses.
+  --
+  -- Fix: also expose an eqv class for each Chinese char in the dictionary,
+  -- keyed so its first element is the corresponding ASCII initial letter.
+  -- This makes rep_char("户") == rep_char("h") == "h".
+  -- For multi-pronunciation chars (e.g. 行=xh), we pick the FIRST initial.
+  local hanzi_to_class = {}
+  local initials_data = require("leap-pinyin.data.initials")
+  for hanzi, initials in pairs(initials_data) do
+    if #initials >= 1 then
+      local first_initial = initials:sub(1, 1)
+      if rev[first_initial] then
+        hanzi_to_class[hanzi] = rev[first_initial]
+      end
+    end
+  end
+
   opts.default.eqv_class_of = setmetatable({}, {
     __index = function(_, ch)
       local hit = rev[ch]
       if hit then return hit end
+      local hanzi_hit = hanzi_to_class[ch]
+      if hanzi_hit then return hanzi_hit end
       if original_eqv_class_of then
         return original_eqv_class_of[ch]
       end
