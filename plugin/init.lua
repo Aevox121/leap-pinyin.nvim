@@ -1,24 +1,7 @@
-local msg = [[
-  leap.nvim: the repository has been moved to Codeberg.
-
-  In your package manager, change the url to `https://codeberg.org/andyg/leap.nvim`.
-
-  In lazy.nvim:
-    before:
-    {
-      "ggandor/leap.nvim",
-      -- config...
-    }
-    after:
-    {
-      url = "https://codeberg.org/andyg/leap.nvim",
-      -- config...
-    }
-]]
-
-vim.notify(msg, vim.log.levels.WARN)
-
----
+-- Note: this is a fork (leap-pinyin.nvim) of leap.nvim with Chinese pinyin
+-- support. Upstream leap.nvim has moved to https://codeberg.org/andyg/leap.nvim.
+-- The migration notice from upstream is suppressed here because this fork
+-- ships its own copy of leap.
 
 local plug_mappings = {
   {
