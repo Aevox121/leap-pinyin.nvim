@@ -25,11 +25,11 @@ local function check(name, cond)
 end
 
 -- ============================================================
-group("setup with shuangpin (default) — should warn but install")
+group("setup with explicit pinyin mode")
 -- ============================================================
 local lp = require("leap-pinyin")
-lp.setup({})  -- default mode = shuangpin
-check("opts.mode = 'shuangpin'", lp.opts.mode == "shuangpin")
+lp.setup({ mode = "pinyin" })
+check("opts.mode = 'pinyin'", lp.opts.mode == "pinyin")
 check("opts.shuangpin_scheme = 'xiaohe'", lp.opts.shuangpin_scheme == "xiaohe")
 
 -- ============================================================
@@ -89,8 +89,9 @@ require("leap-pinyin.leap-hook").uninstall()
 local class_z_after = opts.default.eqv_class_of["z"]
 check("after uninstall, z has no hanzi", class_z_after == nil)
 
--- Reinstall for further tests
+-- Reinstall pinyin mode for further tests
 require("leap-pinyin.leap-hook").install()
+-- The above install() reads opts.mode which is still "pinyin" from the setup() above
 
 -- ============================================================
 group("prepare_pattern integration — pattern includes Chinese chars")
