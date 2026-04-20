@@ -135,12 +135,23 @@ local function read_two_keys()
 end
 
 -- Collect targets in the current window's visible region.
-local function collect_shuangpin_targets(input)
+-- When `backward` is true, only collect targets strictly before the cursor.
+-- Otherwise only collect targets strictly after the cursor. This matches
+-- leap's native s/S directional behavior.
+local function collect_shuangpin_targets(input, backward)
   local lower_input = input:lower()
   local hanzi_set = build_shuangpin_reverse()[lower_input] or {}
   local wininfo = vim.fn.getwininfo(vim.api.nvim_get_current_win())[1]
   local first_line = vim.fn.line("w0")
   local last_line = vim.fn.line("w$")
+  local cur_line = vim.fn.line(".")
+  local cur_col = vim.fn.col(".") -- 1-based byte col
+
+  if backward then
+    last_line = math.min(last_line, cur_line)
+  else
+    first_line = math.max(first_line, cur_line)
+  end
 
   local targets = {}
   for lnum = first_line, last_line do
@@ -152,25 +163,37 @@ local function collect_shuangpin_targets(input)
         local ch1 = vim.fn.strpart(line, byte_col, 1, true)
         if ch1 == "" then break end
         local ch1_len = #ch1
+        local pos_col = byte_col + 1 -- 1-based
 
-        -- Chinese single-char shuangpin match
-        if hanzi_set[ch1] then
-          table.insert(targets, {
-            wininfo = wininfo,
-            pos = { lnum, byte_col + 1 },
-            chars = { ch1, "" },
-          })
+        local include = true
+        if lnum == cur_line then
+          if backward then
+            if pos_col >= cur_col then include = false end
+          else
+            if pos_col <= cur_col then include = false end
+          end
         end
 
-        -- Literal 2-char match (case-insensitive)
-        if byte_col + ch1_len < line_len then
-          local ch2 = vim.fn.strpart(line, byte_col + ch1_len, 1, true)
-          if ch2 ~= "" and (ch1 .. ch2):lower() == lower_input then
+        if include then
+          -- Chinese single-char shuangpin match
+          if hanzi_set[ch1] then
             table.insert(targets, {
               wininfo = wininfo,
-              pos = { lnum, byte_col + 1 },
-              chars = { ch1, ch2 },
+              pos = { lnum, pos_col },
+              chars = { ch1, "" },
             })
+          end
+
+          -- Literal 2-char match (case-insensitive)
+          if byte_col + ch1_len < line_len then
+            local ch2 = vim.fn.strpart(line, byte_col + ch1_len, 1, true)
+            if ch2 ~= "" and (ch1 .. ch2):lower() == lower_input then
+              table.insert(targets, {
+                wininfo = wininfo,
+                pos = { lnum, pos_col },
+                chars = { ch1, ch2 },
+              })
+            end
           end
         end
 
@@ -287,7 +310,7 @@ function M.leap(opts)
     return
   end
 
-  local targets = collect_shuangpin_targets(input)
+  local targets = collect_shuangpin_targets(input, opts.backward)
   if #targets == 0 then
     clear_backdrop()
     vim.notify("leap-pinyin: no matches for '" .. input .. "'", vim.log.levels.INFO)
@@ -300,10 +323,34 @@ function M.leap(opts)
   apply_backdrop(opts.backward)
   vim.cmd("redraw")
 
+  -- When targets are user-given, leap renders labels with offset=0 (overlay
+  -- sitting on top of the first char). For single-char shuangpin targets
+  -- that covers the hanzi itself. Patch the beacons so each label lands
+  -- AFTER the target chars, matching leap's normal phase=1 rendering.
+  local function fix_beacons(tlist, s_idx, e_idx)
+    for i = (s_idx or 1), (e_idx or #tlist) do
+      local t = tlist[i]
+      if t.beacon and t.chars then
+        local ch1 = t.chars[1] or ""
+        local ch2 = t.chars[2] or ""
+        t.beacon[1] = #ch1 + #ch2
+        local vtext = t.beacon[2] and t.beacon[2].virt_text
+        if vtext then
+          for _, seg in ipairs(vtext) do
+            if seg[1] and seg[1]:sub(1, 1) == " " then
+              seg[1] = seg[1]:sub(2)
+            end
+          end
+        end
+      end
+    end
+  end
+
   local ok, err = pcall(function()
     require("leap").leap({
       targets = targets,
       backward = opts.backward,
+      opts = { on_beacons = fix_beacons },
     })
   end)
   clear_backdrop()

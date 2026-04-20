@@ -116,7 +116,7 @@ leap's beacon rendering natively supports the `chars[2] == ""` single-char targe
 
 ## Dictionary
 
-Built from [mozillazg/pinyin-data](https://github.com/mozillazg/pinyin-data) (MIT licensed) covering ~21000 CJK Unified characters. Multi-pronunciation characters are expanded to all readings.
+Built from [mozillazg/pinyin-data](https://github.com/mozillazg/pinyin-data) `kTGHZ2013.txt` (MIT licensed) — the 通用规范汉字表 standard set of ~7800 common characters. Only modern standard readings are included, so rare/archaic/dialectal Unihan readings (e.g. `方` as `wǎng`) don't cause false matches. Legitimate multi-readings like `行` (xíng / háng / héng) are preserved.
 
 Regenerate:
 
@@ -146,7 +146,7 @@ nvim --headless --clean --cmd "set rtp+=." -c "luafile tests/hook_spec.lua" -c "
 nvim --headless --clean --cmd "set rtp+=." -c "luafile tests/shuangpin_spec.lua" -c "qa!"
 ```
 
-Three suites, 84 checks total: matcher logic, pinyin-mode leap integration, shuangpin-mode target collection.
+Three suites, 86 checks total: matcher logic, pinyin-mode leap integration, shuangpin-mode target collection.
 
 ## Credits
 

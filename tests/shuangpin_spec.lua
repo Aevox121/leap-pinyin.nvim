@@ -51,9 +51,10 @@ group("collect_shuangpin_targets — input 'vs' finds 中")
 -- ============================================================
 vim.cmd("enew!")
 vim.api.nvim_buf_set_lines(0, 0, -1, false, {
-  "hello 中文",       -- line 1: 中 at col 7 (after 'hello ')
-  "vs 中华",          -- line 2: literal 'vs' at col 1, 中 at col 4
-  "重要",             -- line 3: 重 at col 1
+  "",                 -- line 1: cursor parks here so content lines are "forward"
+  "hello 中文",       -- line 2: 中 at col 7 (after 'hello ')
+  "vs 中华",          -- line 3: literal 'vs' at col 1, 中 at col 4
+  "重要",             -- line 4: 重 at col 1
 })
 vim.fn.cursor(1, 1)
 
@@ -71,27 +72,27 @@ local function find_target(line, col)
   return nil
 end
 
-local t1 = find_target(1, 7)  -- 中 in line 1
-check("中 at line 1 col 7 found", t1 ~= nil)
+local t1 = find_target(2, 7)  -- 中 in line 2
+check("中 at line 2 col 7 found", t1 ~= nil)
 check("  -> chars[1] = 中",       t1 and t1.chars[1] == "中")
 check("  -> chars[2] = '' (single char)", t1 and t1.chars[2] == "")
 
-local t2 = find_target(2, 1)  -- literal 'vs'
-check("literal 'vs' at line 2 col 1 found", t2 ~= nil)
+local t2 = find_target(3, 1)  -- literal 'vs'
+check("literal 'vs' at line 3 col 1 found", t2 ~= nil)
 check("  -> chars = {'v','s'}", t2 and t2.chars[1] == "v" and t2.chars[2] == "s")
 
-local t3 = find_target(2, 4)  -- 中 in 中华
-check("中 at line 2 col 4 found", t3 ~= nil)
+local t3 = find_target(3, 4)  -- 中 in 中华
+check("中 at line 3 col 4 found", t3 ~= nil)
 
 -- 重 has shuangpin {'vs','is'} (zhòng/chóng) — should match 'vs'
-local t4 = find_target(3, 1)
-check("重 (vs reading) at line 3 col 1 found", t4 ~= nil)
+local t4 = find_target(4, 1)
+check("重 (vs reading) at line 4 col 1 found", t4 ~= nil)
 
 -- ============================================================
 group("collect_shuangpin_targets — multi-pronunciation 行")
 -- ============================================================
 vim.cmd("enew!")
-vim.api.nvim_buf_set_lines(0, 0, -1, false, { "行行行" })
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "", "行行行" })
 vim.fn.cursor(1, 1)
 
 local t_xk = hook._collect_shuangpin_targets("xk")  -- xíng
@@ -102,10 +103,22 @@ check("'hh' (háng) finds 3 行 in '行行行'", #t_hh == 3)
 check("'hg' (hèng) finds 3 行 in '行行行'", #t_hg == 3)
 
 -- ============================================================
+group("collect_shuangpin_targets — directional filter (s vs S)")
+-- ============================================================
+vim.cmd("enew!")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "行行行" })
+vim.fn.cursor(1, 4)  -- on the middle 行 (byte col 4 = start of 2nd CJK char)
+
+local fwd = hook._collect_shuangpin_targets("xk", false)
+local bwd = hook._collect_shuangpin_targets("xk", true)
+check("forward from middle 行 sees only 3rd 行", #fwd == 1 and fwd[1].pos[2] == 7)
+check("backward from middle 行 sees only 1st 行", #bwd == 1 and bwd[1].pos[2] == 1)
+
+-- ============================================================
 group("collect_shuangpin_targets — case insensitive")
 -- ============================================================
 vim.cmd("enew!")
-vim.api.nvim_buf_set_lines(0, 0, -1, false, { "中" })
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "", "中" })
 vim.fn.cursor(1, 1)
 
 check("'vs' (lower) matches 中", #hook._collect_shuangpin_targets("vs") == 1)
@@ -116,7 +129,7 @@ check("'Vs' (mixed) matches 中", #hook._collect_shuangpin_targets("Vs") == 1)
 group("collect_shuangpin_targets — no match returns empty")
 -- ============================================================
 vim.cmd("enew!")
-vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "", "hello world" })
 vim.fn.cursor(1, 1)
 
 check("'vs' on English-only buffer returns 0", #hook._collect_shuangpin_targets("vs") == 0)

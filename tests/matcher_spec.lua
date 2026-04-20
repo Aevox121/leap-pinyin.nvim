@@ -39,7 +39,11 @@ end
 group("get_initials / get_shuangpin sanity")
 -- ============================================================
 check("中 initials = 'z'",       matcher.get_initials("中") == "z")
-check("行 initials = 'xh'",      matcher.get_initials("行") == "xh")
+do
+  local s = matcher.get_initials("行") or ""
+  check("行 initials contains x and h (multi-reading)",
+    s:find("x", 1, true) and s:find("h", 1, true))
+end
 check("华 initials = 'h'",       matcher.get_initials("华") == "h")
 check("中 shuangpin = {'vs'}",   matcher.get_shuangpin("中")[1] == "vs")
 check("圆 shuangpin = {'yr'}",   matcher.get_shuangpin("圆")[1] == "yr")
@@ -53,7 +57,11 @@ check("ASCII 'a' -> 'a'",       matcher._initial_set("a") == "a")
 check("ASCII 'A' -> 'a' (lower)", matcher._initial_set("A") == "a")
 check("ASCII 'Z' -> 'z'",       matcher._initial_set("Z") == "z")
 check("中 -> 'z'",              matcher._initial_set("中") == "z")
-check("行 -> 'xh' (multi-pinyin)", matcher._initial_set("行") == "xh")
+do
+  local s = matcher._initial_set("行") or ""
+  check("行 -> set contains x and h (multi-pinyin)",
+    s:find("x", 1, true) and s:find("h", 1, true))
+end
 
 -- ============================================================
 group("match_initials: pure ASCII (leap baseline)")

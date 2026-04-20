@@ -16,7 +16,7 @@ import urllib.request
 from pathlib import Path
 
 PINYIN_DATA_URL = (
-    "https://raw.githubusercontent.com/mozillazg/pinyin-data/master/pinyin.txt"
+    "https://raw.githubusercontent.com/mozillazg/pinyin-data/master/kTGHZ2013.txt"
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -146,7 +146,7 @@ def parse_pinyin_data(path: Path):
 
 def fetch_pinyin_data() -> Path:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    target = CACHE_DIR / "pinyin.txt"
+    target = CACHE_DIR / "kTGHZ2013.txt"
     if target.exists():
         print(f"using cached: {target}")
         return target
