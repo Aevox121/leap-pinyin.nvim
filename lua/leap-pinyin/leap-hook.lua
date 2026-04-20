@@ -209,10 +209,36 @@ local function apply_backdrop(backward)
     end_row, end_col = bot_line, -1
   end
 
-  local hl_range = vim.hl and vim.hl.range or vim.highlight.range
-  hl_range(bufnr, backdrop_ns, "LeapBackdrop",
+  -- Resolve end-of-line byte column (avoid relying on -1 sentinel)
+  if end_col == -1 then
+    local end_line_text = vim.fn.getline(end_row + 1) or ""
+    end_col = #end_line_text
+  end
+
+  local hl_range = (vim.hl and vim.hl.range) or vim.highlight.range
+  local ok, err = pcall(hl_range, bufnr, backdrop_ns, "LeapBackdrop",
     { start_row, start_col }, { end_row, end_col },
-    { priority = 65534 })
+    { priority = 65534, inclusive = false })
+  if not ok then
+    vim.notify("[leap-pinyin] apply_backdrop failed: " .. tostring(err), vim.log.levels.ERROR)
+  end
+end
+
+-- Debug helper: apply backdrop and redraw so the user can visually verify
+-- the dimming works outside the leap.leap() flow.
+-- Run: :lua require("leap-pinyin.leap-hook").debug_backdrop()
+function M.debug_backdrop()
+  apply_backdrop(false)
+  vim.cmd("redraw")
+  vim.notify("[leap-pinyin] backdrop applied (forward). Move cursor or press a key to clear.", vim.log.levels.INFO)
+  vim.defer_fn(function()
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      local buf = vim.api.nvim_win_get_buf(win)
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_clear_namespace(buf, backdrop_ns, 0, -1)
+      end
+    end
+  end, 3000)
 end
 
 local function clear_backdrop()
@@ -227,17 +253,28 @@ end
 -- Public entry for shuangpin mode.
 function M.leap(opts)
   opts = opts or {}
+
+  -- Apply backdrop BEFORE key reading so the buffer dims from the moment the
+  -- user presses `s`, not just after the 2 keys are collected.
+  apply_backdrop(opts.backward)
+  vim.cmd("redraw")
+
   local input = read_two_keys()
-  if not input then return end
+  if not input then
+    clear_backdrop()
+    return
+  end
 
   local targets = collect_shuangpin_targets(input)
   if #targets == 0 then
+    clear_backdrop()
     vim.notify("leap-pinyin: no matches for '" .. input .. "'", vim.log.levels.INFO)
     return
   end
 
   sort_targets_by_cursor(targets, opts.backward)
 
+  -- Re-apply backdrop in case the key-reading echo/redraw dirtied it.
   apply_backdrop(opts.backward)
   vim.cmd("redraw")
 

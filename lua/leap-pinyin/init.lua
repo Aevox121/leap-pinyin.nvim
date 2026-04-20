@@ -32,9 +32,19 @@ M.opts = vim.deepcopy(default_opts)
 -- We reinforce by (1) providing a default LeapBackdrop and (2) re-running
 -- leap's highlight init now and again on every ColorScheme change.
 local function ensure_backdrop()
+  -- Use an explicit dim color instead of `link = Comment` — Comment on many
+  -- colorschemes (including catppuccin) is too close to normal text to be
+  -- visually distinguishable as dimming. If the current LeapBackdrop is
+  -- undefined or is our own previous Comment-link fallback, force-replace
+  -- with an explicit grey. A real colorscheme leap integration (with fg/bg
+  -- of its own) will NOT be overridden.
   local existing = vim.api.nvim_get_hl(0, { name = "LeapBackdrop" })
-  if vim.tbl_isempty(existing) then
-    vim.api.nvim_set_hl(0, "LeapBackdrop", { link = "Comment", default = true })
+  local is_fallback = vim.tbl_isempty(existing) or existing.link == "Comment"
+  if is_fallback then
+    local is_dark = vim.o.background == "dark"
+    vim.api.nvim_set_hl(0, "LeapBackdrop", {
+      fg = is_dark and "#585b70" or "#9ca0b0",
+    })
   end
   pcall(function()
     require("leap.highlight"):init()
