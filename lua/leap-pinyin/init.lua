@@ -69,6 +69,11 @@ function M.setup(user_opts)
       group = vim.api.nvim_create_augroup("LeapPinyinBackdrop", { clear = true }),
       callback = ensure_backdrop,
     })
+
+    vim.api.nvim_create_user_command("LeapPinyinReloadDict", function()
+      require("leap-pinyin.leap-hook").reload_dict()
+      vim.notify("leap-pinyin: dict reloaded", vim.log.levels.INFO)
+    end, { desc = "Drop cached pinyin/shuangpin reverse index and re-read data files" })
   end
 end
 

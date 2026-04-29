@@ -401,6 +401,15 @@ function M.uninstall()
   installed = false
 end
 
+-- Drop the cached reverse index AND force Lua to re-read the data files
+-- from disk. Useful after regenerating shuangpin.lua / initials.lua.
+function M.reload_dict()
+  shuangpin_reverse = nil
+  pinyin_reverse_index = nil
+  package.loaded["leap-pinyin.data.shuangpin"] = nil
+  package.loaded["leap-pinyin.data.initials"] = nil
+end
+
 -- Exposed for tests
 M._build_shuangpin_reverse = build_shuangpin_reverse
 M._collect_shuangpin_targets = collect_shuangpin_targets

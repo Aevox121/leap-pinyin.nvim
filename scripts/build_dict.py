@@ -67,40 +67,23 @@ FINAL_MAP = {
     "van": "r",
 }
 
-# Special syllables (整体认读 / 零声母带 y) — written form != phonetic structure
-# Override the algorithmic conversion for these.
-SYLLABLE_OVERRIDES = {
-    # y- group: written y, phonetically i/ü
-    "yi":   "yi",
-    "ya":   "yx",   # y + ia
-    "ye":   "yp",   # y + ie
-    "yao":  "yn",   # y + iao
-    "you":  "yq",   # y + iu
-    "yan":  "ym",   # y + ian
-    "yang": "yl",   # y + iang
-    "yin":  "yb",   # y + in
-    "ying": "yk",   # y + ing
-    "yong": "ys",   # y + iong
-    "yu":   "yv",   # y + ü
-    "yue":  "yt",   # y + üe
-    "yuan": "yr",   # y + üan
-    "yun":  "yy",   # y + ün
-    # w- group: only wu needs special (others align with normal rules)
-    "wu":   "wu",
-    # j/q/x + u (actually ü) — handled by post-processing rule, but keep these as safety
-    # zero-initial — handled by main algo
-}
-
-
 def to_shuangpin(pinyin: str) -> str | None:
     """Convert a tone-stripped lowercase pinyin syllable to xiaohe shuangpin (2 keys).
+
+    Layout follows the official 小鹤双拼 keyboard (per 何海峰), surface form:
+      - 声母: zh→V, ch→I, sh→U; others literal
+      - 韵母: per FINAL_MAP (iu→Q, ei→W, uan/van→R, ue/ve→T, ao→C, ...)
+      - y/w 整体认读 use surface form: 妖(yao)=yc, 业(ye)=ye, 烟(yan)=yj, 优(you)=yz
+
+    Note: NO j/q/x/y + u → ü rewriting. The 'u' in ju/qu/xu/yu is taken as
+    pinyin-literal and maps to U key, so 鱼=yu, 居=ju, 须=xu, 区=qu (not yv/jv/xv/qv).
+    Other ü-pinyins (jue/juan/jun + nü/lü) still produce correct codes because
+    ue/ve, uan/van, un/vn all share the same 韵母 key.
 
     Returns None if conversion fails (unknown final).
     """
     if not pinyin:
         return None
-    if pinyin in SYLLABLE_OVERRIDES:
-        return SYLLABLE_OVERRIDES[pinyin]
 
     # Identify initial (longest match: 2 chars then 1 char)
     if len(pinyin) >= 2 and pinyin[:2] in INITIALS_2:
@@ -114,14 +97,20 @@ def to_shuangpin(pinyin: str) -> str | None:
         initial_key = pinyin[0]
         final = pinyin
 
-    # j/q/x/y + u → actually ü
-    if initial_key in "jqxy" and final.startswith("u"):
-        final = "v" + final[1:]
-
     final_key = FINAL_MAP.get(final)
     if final_key is None:
         return None
     return initial_key + final_key
+
+
+def to_shuangpin_codes(pinyin: str) -> list[str]:
+    """Return the xiaohe shuangpin code(s) for a pinyin syllable as a list.
+
+    Strict 小鹤 produces a single code per syllable; this returns a 1-element
+    list (or empty on failure) for caller convenience.
+    """
+    sp = to_shuangpin(pinyin)
+    return [sp] if sp else []
 
 
 # ------------------------------------------------------------------
@@ -235,17 +224,20 @@ def main():
                 seen.append(syl[0])
         initials[char] = "".join(seen)
 
-        # shuangpin: unique codes in original order
+        # shuangpin: unique codes in original order. Each syllable contributes
+        # both the phonetic-decomposed form and the surface (pinyin-as-written)
+        # form so users can type either style.
         codes: list[str] = []
         had_failure = False
         for syl in plain_syllables:
-            sp = to_shuangpin(syl)
-            if sp is None:
+            sps = to_shuangpin_codes(syl)
+            if not sps:
                 failed_syllables.add(syl)
                 had_failure = True
                 continue
-            if sp not in codes:
-                codes.append(sp)
+            for sp in sps:
+                if sp not in codes:
+                    codes.append(sp)
         if had_failure:
             chars_with_failures += 1
         if codes:
